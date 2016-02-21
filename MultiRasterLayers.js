@@ -1,11 +1,4 @@
 ﻿(function () {
-    _translationsHash.addtext('rus', {MultiRasterLayers: {
-        button: 'Мультирастр'
-    }});
-    _translationsHash.addtext('eng', {MultiRasterLayers: {
-        button : 'MultiRasterLayers'
-    }});
-
     var multiRasterLayer,
         visibleLayers = {},
         isExternalVisible = function () {
@@ -29,19 +22,57 @@
         },
         setVisible = function (layer, flag) {
             visibleLayers[layer.getGmxProperties().name] = layer.isExternalVisible = flag ? isExternalVisible : null;
-            layer.redraw();
+            if (flag) { layer.onRemove(nsGmx.leafletMap); }
         };
 
     var addMultiRasterLayer = function (layersIds) {
-        var lmap = nsGmx.leafletMap,
-            gmxLayers = lmap.gmxControlsManager.get('layers');
+        var map = nsGmx.leafletMap;
+        multiRasterLayer = L.gmx.createLayer({
+                properties: {
+                    type: 'Vector',
+                    GeometryType: 'polygon',
+                    identityField: 'gmx_id',
+                    ZIndexField: '_zIndex',
+                    attributes: ['gmx_id', '_zIndex', 'MinZoom', 'MaxZoom', 'GMX_RasterCatalogID'],
+                    attrTypes: ['integer', 'integer', 'integer', 'integer', 'string'],
+                    IsRasterCatalog: true,
+                    RCMinZoomForRasters: 1
+                }
+            })
+            .setFilter(function (it) {
+                var zoom = map.getZoom(),
+                    pArr = it.properties;
+                return visibleLayers[pArr[5]] && zoom >= pArr[3] && zoom <= pArr[4];
+            })
+            .setStyles([
+                {
+                    MinZoom: 1, MaxZoom: 21,
+                    DisableBalloonOnClick: true,
+                    DisableBalloonOnMouseMove: true,
+                    RenderStyle: {
+                        weight: 0
+                    },
+                    HoverStyle: {
+                        weight: 0
+                    }
+                }
+            ])
+            // .on('startDraw', function (ev) {
+                // console.log('startDraw');
+                // this.startStamp = Date.now();
+            // }, this)
+            // .on('doneDraw', function (ev) {
+                // console.log('doneDraw', Date.now() - this.startStamp);
+            // }, this)
+            .addData(
+                layersIds.reduce(function (p, layer) {
+                    p.push(getItemFromLayer(layer));
+                    setVisible(layer, layer._map);
+                    return p;
+                }, [])
+            );
 
-        var data = layersIds.reduce(function (p, layer) {
-            p.push(getItemFromLayer(layer));
-            setVisible(layer, layer._map);
-            return p;
-        }, []);
-        nsGmx.leafletMap
+        map
             .on('layeradd', function (ev) {
                 var layer = ev.layer;
                 if (layer instanceof L.gmx.RasterLayer) {
@@ -58,63 +89,27 @@
                     setVisible(layer, false);
                     multiRasterLayer.repaint();
                 }
-            });
-
-        var info = {
-            properties: {
-                type: 'Vector',
-                GeometryType: 'polygon',
-                identityField: 'gmx_id',
-                ZIndexField: '_zIndex',
-                attributes: ['gmx_id', '_zIndex', 'MinZoom', 'MaxZoom', 'GMX_RasterCatalogID'],
-                attrTypes: ['integer', 'integer', 'integer', 'integer', 'string'],
-                IsRasterCatalog: true,
-                RCMinZoomForRasters: 1
-            }
-        };
-        multiRasterLayer = L.gmx.createLayer(info)
-            .setFilter(function (it) {
-                var zoom = nsGmx.leafletMap.getZoom(),
-                    props = it.properties;
-                return visibleLayers[props[5]] && zoom >= props[3] && zoom <= props[4];
             })
-            .setStyles([
-                {
-                    MinZoom: 1, MaxZoom: 21,
-                    DisableBalloonOnClick: true,
-                    DisableBalloonOnMouseMove: true,
-                    RenderStyle: {
-                        color: 0xFF0000,
-                        weight: 0
-                    },
-                    HoverStyle: {
-                        color: 0xFF0000,
-                        weight: 0
-                    }
-                }
-            ])
-            .addData(data);
-        nsGmx.leafletMap.addLayer(multiRasterLayer);
-        // gmxLayers.addOverlay(multiRasterLayer, _gtxt('MultiRasterLayers.button'));
+            .addLayer(multiRasterLayer);
     }
 
     var publicInterface = {
         pluginName: 'MultiRasterLayers',
-        afterViewer: function (params) {
-            var layers = nsGmx.gmxMap.layers.reduce(function (p, layer) {
-                var rawProp = layer.getGmxProperties();
-                if (rawProp.type === 'Raster') {
-                    p.push(layer);
-                }
-                return p;
-            }, []);
-            addMultiRasterLayer(layers);
+        afterViewer: function () {
+            addMultiRasterLayer(
+                nsGmx.gmxMap.layers.reduce(function (p, layer) {
+                    if (layer.getGmxProperties().type === 'Raster') { p.push(layer); }
+                    return p;
+                }, [])
+            );
         },
         unload: function() {
-            var lmap = nsGmx.leafletMap,
-                gmxLayers = lmap.gmxControlsManager.get('layers');
-            gmxLayers.removeLayer(multiRasterLayer);
-            lmap.removeLayer(multiRasterLayer);
+            var map = nsGmx.leafletMap;
+            map.removeLayer(multiRasterLayer);
+            for (var id in visibleLayers) {
+                var layer = nsGmx.gmxMap.layersByID[id];
+                if (map.hasLayer(layer)) { layer.onAdd(map); }
+            }
         }
     }
 
