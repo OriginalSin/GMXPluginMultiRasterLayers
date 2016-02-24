@@ -25,7 +25,7 @@
             if (flag) { layer.onRemove(nsGmx.leafletMap); }
         };
 
-    var addMultiRasterLayer = function (layersIds) {
+    var addMultiRasterLayer = function (layersIds, params) {
         var map = nsGmx.leafletMap;
         multiRasterLayer = L.gmx.createLayer({
                 properties: {
@@ -57,13 +57,6 @@
                     }
                 }
             ])
-            // .on('startDraw', function (ev) {
-                // console.log('startDraw');
-                // this.startStamp = Date.now();
-            // }, this)
-            // .on('doneDraw', function (ev) {
-                // console.log('doneDraw', Date.now() - this.startStamp);
-            // }, this)
             .addData(
                 layersIds.reduce(function (p, layer) {
                     p.push(getItemFromLayer(layer));
@@ -71,6 +64,7 @@
                     return p;
                 }, [])
             );
+        if (!params.clickable || (params.clickable !== 'true' && params.clickable !== true)) { multiRasterLayer.options.clickable = false; }
 
         map
             .on('layeradd', function (ev) {
@@ -95,13 +89,13 @@
 
     var publicInterface = {
         pluginName: 'MultiRasterLayers',
-        afterViewer: function () {
+        afterViewer: function (params) {
             addMultiRasterLayer(
                 nsGmx.gmxMap.layers.reduce(function (p, layer) {
                     if (layer.getGmxProperties().type === 'Raster') { p.push(layer); }
                     return p;
                 }, [])
-            );
+            , params);
         },
         unload: function() {
             var map = nsGmx.leafletMap;
