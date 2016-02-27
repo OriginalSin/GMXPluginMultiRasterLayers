@@ -27,6 +27,8 @@
 
     var addMultiRasterLayer = function (layersIds, params) {
         var map = nsGmx.leafletMap;
+        if (!layersIds) { layersIds = []; }
+        if (!params) { params = {}; }
         multiRasterLayer = L.gmx.createLayer({
                 properties: {
                     type: 'Vector',
@@ -92,7 +94,8 @@
         afterViewer: function (params) {
             addMultiRasterLayer(
                 nsGmx.gmxMap.layers.reduce(function (p, layer) {
-                    if (layer.getGmxProperties().type === 'Raster') { p.push(layer); }
+                    var props = layer.getGmxProperties();
+                    if (props.type === 'Raster' && props.visible) { p.push(layer); }
                     return p;
                 }, [])
             , params);
