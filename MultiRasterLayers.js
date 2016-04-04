@@ -8,11 +8,11 @@
             var options = layer.options,
                 rawProp = layer.getGmxProperties(),
                 layerId = rawProp.name,
-                gmx_id = Object.keys(visibleLayers).length + 1;
+                gmxId = Object.keys(visibleLayers).length + 1;
 
             return [
-                gmx_id,
-                gmx_id,
+                gmxId,
+                gmxId,
                 options.zIndexOffset + options.zIndex,
                 rawProp.styles[0].MinZoom || 1,
                 rawProp.styles[0].MaxZoom || 21,
@@ -87,7 +87,7 @@
                 }
             })
             .addLayer(multiRasterLayer);
-    }
+    };
 
     var publicInterface = {
         pluginName: 'MultiRasterLayers',
@@ -108,7 +108,7 @@
                 if (map.hasLayer(layer)) { layer.onAdd(map); }
             }
         }
-    }
+    };
 
     window.gmxCore && window.gmxCore.addModule('MultiRasterLayers', publicInterface);
 })();
