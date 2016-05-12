@@ -1,28 +1,33 @@
 ﻿(function () {
     var multiRasterLayer,
         visibleLayers = {},
-        isExternalVisible = function () {
-            return true;
-        },
-        getItemFromLayer = function (layer) {
-            var options = layer.options,
-                rawProp = layer.getGmxProperties(),
-                layerId = rawProp.name,
-                gmxId = Object.keys(visibleLayers).length + 1;
-
-            return [
-                gmxId,
-                gmxId,
-                options.zIndexOffset + options.zIndex,
-                rawProp.styles[0].MinZoom || 1,
-                rawProp.styles[0].MaxZoom || 21,
-                layerId,
-                layer._gmx.geometry
-            ];
-        },
+        curId = 0,
         setVisible = function (layer, flag) {
-            visibleLayers[layer.getGmxProperties().name] = layer.isExternalVisible = flag ? isExternalVisible : null;
-            if (flag) { layer.onRemove(nsGmx.leafletMap); }
+            var rawProp = layer.getGmxProperties(),
+                layerId = rawProp.name;
+
+            if (flag) {
+				curId++;
+				var options = layer.options,
+					zIndex = (options.zIndexOffset ? options.zIndexOffset : 0) + (options.zIndex ? options.zIndex : 0),
+					gmxId = curId,
+					pArr = [
+						gmxId,
+						gmxId,
+						zIndex,
+						rawProp.styles[0].MinZoom || 1,
+						rawProp.styles[0].MaxZoom || 21,
+						layerId,
+						layer._gmx.geometry
+					];
+				multiRasterLayer.addData([pArr]);
+				visibleLayers[layerId] = gmxId;
+				layer.onRemove(nsGmx.leafletMap);
+			} else {
+				multiRasterLayer.removeData([visibleLayers[layerId]]);
+				visibleLayers[layerId] = null;
+			}
+			multiRasterLayer.repaint();
         };
 
     var addMultiRasterLayer = function (layersIds, params) {
@@ -58,32 +63,25 @@
                         weight: 0
                     }
                 }
-            ])
-            .addData(
-                layersIds.reduce(function (p, layer) {
-                    p.push(getItemFromLayer(layer));
-                    setVisible(layer, layer._map);
-                    return p;
-                }, [])
-            );
+            ]);
+
+		layersIds.forEach(function (layer) {
+			setVisible(layer, layer._map);
+		});
+
         if (!params.clickable || (params.clickable !== 'true' && params.clickable !== true)) { multiRasterLayer.options.clickable = false; }
 
         map
             .on('layeradd', function (ev) {
                 var layer = ev.layer;
                 if (layer instanceof L.gmx.RasterLayer) {
-                    if (!(layer.getGmxProperties().name in visibleLayers)) {
-                        multiRasterLayer.addData([getItemFromLayer(layer)]);
-                    }
                     setVisible(layer, true);
-                    multiRasterLayer.repaint();
                 }
             })
             .on('layerremove', function (ev) {
                 var layer = ev.layer;
                 if (layer instanceof L.gmx.RasterLayer) {
                     setVisible(layer, false);
-                    multiRasterLayer.repaint();
                 }
             })
             .addLayer(multiRasterLayer);
